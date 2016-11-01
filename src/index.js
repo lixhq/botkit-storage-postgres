@@ -57,20 +57,10 @@ module.exports = function (config) {
     console.error('botkit-storage-postgres> error running setup. Error: ' + err.stack);
   });
 
-  const dbexec = co.wrap(function *(func) {
+  const dbexec = co.wrap(function* (...args) {
     const pool = yield promisedPool;
-    const {client,done} = yield new Promise((resolve,reject) => pool.connect((err, client, done) =>
-      err ? reject(err) : resolve({client,done})))
-      .catch(err => {throw new Error(`Could not execute '${qstr}'. Error: ${err.stack || err}`)});;
-
-    _pool = new pg.Pool(config);
-
-    const query = (...args) => new Promise((resolve,reject) =>
-      client.query(...args, (err, res) => err ? reject(err) : resolve(res)));
-
-    const x = yield func(query, client);
-    done();
-    return x;
+    const query = yield pool.query(...args);
+    return query;
   });
 
   const wrap = (func) => {
@@ -88,23 +78,23 @@ module.exports = function (config) {
   const persisting = (tableName) => {
     return {
       get: wrap(function *(id) {
-        const result = yield dbexec(q => q(`SELECT json from ${tableName} where id = $1`, [id]));
+        const result = yield dbexec(`SELECT json from ${tableName} where id = $1`, [id]);
         if(result.rowCount === 0) {
           throw {displayName: 'NotFound'};
         }
         return JSON.parse(result.rows[0].json);
       }),
       save: wrap(function *(data) {
-        yield dbexec(q => q(`INSERT INTO ${tableName} (id, json)
-                             VALUES ($1, $2)
-                             ON CONFLICT (id) DO UPDATE SET json = EXCLUDED.json;`, [data.id, JSON.stringify(data)]))
+        yield dbexec(`INSERT INTO ${tableName} (id, json)
+                            VALUES ($1, $2)
+                            ON CONFLICT (id) DO UPDATE SET json = EXCLUDED.json;`, [data.id, JSON.stringify(data)]);
       }),
       all: wrap(function *() {
-        const result = yield dbexec(q => q(`SELECT json from ${tableName}`))
+        const result = yield dbexec(`SELECT json from ${tableName}`);
         return result.rows.map(x => JSON.parse(x.json));
       })
     };
-  }
+  };
 
   const storage = {
     teams: persisting('botkit_teams'),
