@@ -1,33 +1,39 @@
 const pg = require('pg');
 const co = require('co');
 
-module.exports = function (config) {
-  if (!config) {
-    throw new Error('No config supplied!');
+module.exports = function (config, defaults) {
+  if (typeof config == "object") {
+    config = {
+      user: config.user || process.env.BOTKIT_STORAGE_POSTGRES_USER || 'botkit',
+      database: config.database || process.env.BOTKIT_STORAGE_POSTGRES_DATABASE || 'botkit',
+      password: config.password || process.env.BOTKIT_STORAGE_POSTGRES_PASSWORD || 'botkit',
+      host: config.host || process.env.BOTKIT_STORAGE_POSTGRES_HOST || 'localhost',
+      port: config.port || process.env.BOTKIT_STORAGE_POSTGRES_PORT || '5432',
+      max: config.maxClients || process.env.BOTKIT_STORAGE_POSTGRES_MAX_CLIENTS || '10',
+      idleTimeoutMillis: config.idleTimeoutMillis || process.env.BOTKIT_STORAGE_POSTGRES_IDLE_TIMEOUT_MILLIS || '30000',
+    };
+  } else if (typeof config == 'string') {
+    //nothing to validate, other than it being a string
+  } else {
+    throw new Error('Can only accept a connection string, or a configuration object');
   }
 
-  config = {
-    user: config.user || process.env.BOTKIT_STORAGE_POSTGRES_USER || 'botkit',
-    database: config.database || process.env.BOTKIT_STORAGE_POSTGRES_DATABASE || 'botkit',
-    password: config.password || process.env.BOTKIT_STORAGE_POSTGRES_PASSWORD || 'botkit',
-    host: config.host || process.env.BOTKIT_STORAGE_POSTGRES_HOST || 'localhost',
-    port: config.port || process.env.BOTKIT_STORAGE_POSTGRES_PORT || '5432',
-    max: config.maxClients || process.env.BOTKIT_STORAGE_POSTGRES_MAX_CLIENTS || '10',
-    idleTimeoutMillis: config.idleTimeoutMillis || process.env.BOTKIT_STORAGE_POSTGRES_IDLE_TIMEOUT_MILLIS || '30000',
-  };
+  if (defaults) {
+    pg.defaults = Object.assign(pg.defaults, defaults);
+  }
 
   const promisedPool = co(function *() {
-    const q = (client, qstr) => new Promise((resolve,reject) => client.query(qstr, [], (err, res) => err ? reject(err) : resolve(res)))
-      .catch(err => {throw new Error(`Could not execute '${qstr}'. Error: ${err.stack || err}`)});
-    const connect = (client) => new Promise((resolve,reject) => client.connect((err, done) => err ? reject(err) : resolve()))
+    const q = (client, qstr) => new Promise((resolve, reject) => client.query(qstr, [], (err, res) => err ? reject(err) : resolve(res)))
+      .catch(err => { throw new Error(`Could not execute '${qstr}'. Error: ${err.stack || err}`); });
+    const connect = (client) => new Promise((resolve, reject) => client.connect((err, done) => err ? reject(err) : resolve()));
 
-    const noDbClient = new pg.Client(Object.assign({}, config, {database: 'template1'}));
+    const noDbClient = new pg.Client(config);
     yield connect(noDbClient);
-    const dbexistsQuery = yield q(noDbClient, `SELECT 1 from pg_database WHERE datname='${config.database}'`);
+    const dbexistsQuery = yield q(noDbClient, `SELECT 1 from pg_database WHERE datname='${noDbClient.database}'`);
 
-    if(dbexistsQuery.rows.length === 0) {
-      console.log('botkit-storage-postgres> creating db ' + config.database);
-      yield q(noDbClient, 'CREATE DATABASE ' + config.database);
+    if (dbexistsQuery.rows.length === 0) {
+      console.log(`botkit-storage-postgres> creating db ${noDbClient.database}`);
+      yield q(noDbClient, `CREATE DATABASE ${noDbClient.database}`);
     }
 
     noDbClient.end();
@@ -35,15 +41,17 @@ module.exports = function (config) {
     const dbClient = new pg.Client(config);
     yield connect(dbClient);
 
-    yield ['botkit_teams', 'botkit_users', 'botkit_channels'].map(tableName =>
-      q(dbClient, `CREATE TABLE IF NOT EXISTS ${tableName} (
-        id char(50) NOT NULL PRIMARY KEY,
-        json TEXT NOT NULL
-      )`))
+    yield ['botkit_teams', 'botkit_users', 'botkit_channels']
+      .map(tableName => `CREATE TABLE IF NOT EXISTS ${tableName} (id char(50) NOT NULL PRIMARY KEY, json TEXT NOT NULL)`)
+      .map(createQuery => q(dbClient, createQuery));
 
     dbClient.end();
 
-    const pool = new pg.Pool(config);
+    var MakeClient = function() {
+      return new pg.Client(config);
+    }
+
+    const pool = yield Promise.resolve(new pg.Pool({ Client: MakeClient }));
 
     pool.on('error', function (err, client) {
       console.error('botkit-storage-postgres> idle client error', err.message, err.stack);
@@ -52,9 +60,9 @@ module.exports = function (config) {
   });
 
   promisedPool.then(() => {
-    console.log(`botkit-storage-postgres> connected to ${config.host}:${config.port}/${config.database}`);
+    console.log(`botkit-storage-postgres> connected to database`);
   }, (err) => {
-    console.error('botkit-storage-postgres> error running setup. Error: ' + err.stack);
+    console.error(`botkit-storage-postgres> error running setup. Error: ${err.stack}`);
   });
 
   const dbexec = co.wrap(function *(func) {
@@ -110,9 +118,7 @@ module.exports = function (config) {
     teams: persisting('botkit_teams'),
     channels: persisting('botkit_channels'),
     users: persisting('botkit_users'),
-    end: () => {
-      return promisedPool.then(x => x.end())
-    }
+    end: () => promisedPool.then(x => x.end())
   };
 
   return storage;

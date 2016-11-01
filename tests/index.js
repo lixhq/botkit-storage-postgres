@@ -1,6 +1,7 @@
-var test = require('unit.js');
-var pg = require('pg');
-var async = require('async');
+const test = require('unit.js');
+const pg = require('pg');
+const async = require('async');
+const storage = require('../src/index');
 
 testObj0 = {id: 'TEST0', foo: 'bar0'};
 testObj1 = {id: 'TEST1', foo: 'bar1'};
@@ -59,23 +60,39 @@ const dbConfig = {
   host: process.env.BOTKIT_STORAGE_POSTGRES_HOST || 'localhost',
   port: process.env.BOTKIT_STORAGE_POSTGRES_PORT || '5432'
 };
-const pgClient = new pg.Client(dbConfig);
-pgClient.connect();
-pgClient.query(`
-    drop schema public cascade;
-    create schema public;`,
-(err, res) => {
-  if(err) throw new Error(err.stack);
-  pgClient.end();
-  var pg_storage = require('../src/index.js')(dbConfig);
 
-  async.parallel([
-    (cb) => testStorageMethod(pg_storage.users, cb),
-    (cb) => testStorageMethod(pg_storage.channels, cb),
-    (cb) => testStorageMethod(pg_storage.teams, cb),
-  ], (err, res) => {
-    if(err) console.error("Test failed!", err);
-    else console.log("Test succeeded!")
-    pg_storage.end();
-  })
-});
+const dbConnectionString = process.env.BOTKIT_STORAGE_POSTGRES_CONNECTIONSTRING || 'postgresql://botkit:botkit@localhost:5432/botkit_test';
+
+var doTest = (connectionMethod, connectionMethodName) => {
+  return cb => {
+    const pgClient = new pg.Client(connectionMethod);
+    pgClient.connect();
+    pgClient.query(`
+        drop schema public cascade;
+        create schema public;`, (err, res) => {
+        if(err) throw new Error(err.stack);
+        pgClient.end();
+        var pg_storage = storage(connectionMethod);
+
+        async.parallel([
+          (cb) => testStorageMethod(pg_storage.users, cb),
+          (cb) => testStorageMethod(pg_storage.channels, cb),
+          (cb) => testStorageMethod(pg_storage.teams, cb),
+        ], (err, res) => {
+          if (err) {
+            console.error(`${connectionMethodName} test failed!`, err);
+            cb(err, null);
+          } else {
+            console.log(`${connectionMethodName} test succeeded!`);
+            cb(null, true);
+          }
+          pg_storage.end();
+        });
+    });
+  };
+};
+
+async.series([
+  doTest(dbConfig, "Configuration object"),
+  doTest(dbConnectionString, "Connection string")
+]);
