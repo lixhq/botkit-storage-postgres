@@ -13,7 +13,7 @@ npm install botkit-storage-postgres --save
 and require it and use it:
 
 ```
-var botkitStoragePostgres = require('botkit-storage-mysql');
+var botkitStoragePostgres = require('botkit-storage-postgres');
 var Botkit = require('botkit');
 
 var controller = Botkit.slackbot({
