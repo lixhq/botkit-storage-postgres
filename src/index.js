@@ -14,6 +14,7 @@ module.exports = function (config) {
     port: config.port || process.env.BOTKIT_STORAGE_POSTGRES_PORT || '5432',
     max: config.maxClients || process.env.BOTKIT_STORAGE_POSTGRES_MAX_CLIENTS || '10',
     idleTimeoutMillis: config.idleTimeoutMillis || process.env.BOTKIT_STORAGE_POSTGRES_IDLE_TIMEOUT_MILLIS || '30000',
+    useJsonB: config.useJsonB || process.env.BOTKIT_STORAGE_POSTGRES_USE_JSONB || false
   };
 
   const promisedPool = co(function *() {
@@ -35,11 +36,22 @@ module.exports = function (config) {
     const dbClient = new pg.Client(config);
     yield connect(dbClient);
 
-    yield ['botkit_teams', 'botkit_users', 'botkit_channels'].map(tableName =>
-      q(dbClient, `CREATE TABLE IF NOT EXISTS ${tableName} (
-        id char(50) NOT NULL PRIMARY KEY,
-        json TEXT NOT NULL
-      )`))
+    yield ['botkit_teams', 'botkit_users', 'botkit_channels'].map(tableName => {
+      if (config.useJsonB) {
+        return q(dbClient, `
+          CREATE TABLE IF NOT EXISTS ${tableName} (
+            id char(50) NOT NULL PRIMARY KEY,
+            json JSONB NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS ${tableName}_json_idx ON ${tableName} USING GIN(json jsonb_path_ops);
+        `)
+      } else {
+        return q(dbClient, `CREATE TABLE IF NOT EXISTS ${tableName} (
+          id char(50) NOT NULL PRIMARY KEY,
+          json TEXT NOT NULL
+        )`)
+      }
+    })
 
     dbClient.end();
 
@@ -85,6 +97,9 @@ module.exports = function (config) {
     };
   };
 
+  const parseFn = config.useJsonB ? a => a : a => JSON.parse(a)
+  const stringifyFn = config.useJsonB ? a => a : a => JSON.stringify(a)
+
   const persisting = (tableName) => {
     return {
       get: wrap(function *(id) {
@@ -92,16 +107,16 @@ module.exports = function (config) {
         if(result.rowCount === 0) {
           throw {displayName: 'NotFound'};
         }
-        return JSON.parse(result.rows[0].json);
+        return parseFn(result.rows[0].json);
       }),
       save: wrap(function *(data) {
         yield dbexec(q => q(`INSERT INTO ${tableName} (id, json)
                              VALUES ($1, $2)
-                             ON CONFLICT (id) DO UPDATE SET json = EXCLUDED.json;`, [data.id, JSON.stringify(data)]))
+                             ON CONFLICT (id) DO UPDATE SET json = EXCLUDED.json;`, [data.id, stringifyFn(data)]))
       }),
       all: wrap(function *() {
         const result = yield dbexec(q => q(`SELECT json from ${tableName}`))
-        return result.rows.map(x => JSON.parse(x.json));
+        return result.rows.map(x => parseFn(x.json));
       })
     };
   }
