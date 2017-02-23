@@ -59,6 +59,9 @@ const dbConfig = {
   host: process.env.BOTKIT_STORAGE_POSTGRES_HOST || 'localhost',
   port: process.env.BOTKIT_STORAGE_POSTGRES_PORT || '5432'
 };
+
+// const dbConfig = process.env.BOTKIT_STORAGE_POSTGRES_CONNECTIONSTRING || 'postgresql://botkit:botkit@localhost:5432/botkit_test'
+
 const pgClient = new pg.Client(dbConfig);
 pgClient.connect();
 pgClient.query(`
