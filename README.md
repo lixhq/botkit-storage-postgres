@@ -25,3 +25,6 @@ var controller = Botkit.slackbot({
   })
 });
 ```
+### Requirements
+* Node 6.7 or later
+* Postgres 9.5 or later
