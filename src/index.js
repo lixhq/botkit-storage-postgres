@@ -1,9 +1,23 @@
 const pg = require('pg');
 const co = require('co');
+var url = require('url');
 
 module.exports = function (config) {
   if (!config) {
     throw new Error('No config supplied!');
+  }
+
+  if(config.postgresUri) {
+    var pg_data = url.parse(config.postgresUri,true);
+    if(['postgres:','postgresql:'].indexOf(pg_data.protocol) == -1)
+      throw new Error('Not a postgres url');
+    var auth = pg_data.auth.split(':');
+    config.user = auth[0];
+    config.password = auth[1] || '';
+    config.port = pg_data.port;
+    config.host = pg_data.hostname;
+    config.database = pg_data.pathname.slice(1);
+    Object.assign(config, pg_data.query);
   }
 
   config = {

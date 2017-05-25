@@ -23,7 +23,8 @@
   "homepage": "https://github.com/lixhq/botkit-storage-postgres#readme",
   "dependencies": {
     "co": "^4.6.0",
-    "pg": "^6.1.0"
+    "pg": "^6.1.0",
+    "url": "^0.11.0"
   },
   "engines": {
     "node": ">=6.7"

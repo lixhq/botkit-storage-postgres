@@ -53,12 +53,14 @@ var testStorageMethod = function(storageMethod, cb) {
 };
 
 const dbConfig = {
-  user: process.env.BOTKIT_STORAGE_POSTGRES_USER || 'botkit',
-  database: process.env.BOTKIT_STORAGE_POSTGRES_DATABASE || 'botkit_test',
-  password: process.env.BOTKIT_STORAGE_POSTGRES_PASSWORD || 'botkit',
-  host: process.env.BOTKIT_STORAGE_POSTGRES_HOST || 'localhost',
-  port: process.env.BOTKIT_STORAGE_POSTGRES_PORT || '5432'
+  // user: process.env.BOTKIT_STORAGE_POSTGRES_USER || 'botkit',
+  // database: process.env.BOTKIT_STORAGE_POSTGRES_DATABASE || 'botkit_test',
+  // password: process.env.BOTKIT_STORAGE_POSTGRES_PASSWORD || 'botkit',
+  // host: process.env.BOTKIT_STORAGE_POSTGRES_HOST || 'localhost',
+  // port: process.env.BOTKIT_STORAGE_POSTGRES_PORT || '5432'
+  postgresUri : process.env.postgresUri || 'postgres://botkit:botkit@localhost:5432/botkit_test'
 };
+
 const pgClient = new pg.Client(dbConfig);
 pgClient.connect();
 pgClient.query(`
