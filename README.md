@@ -1,3 +1,7 @@
+# NOT MAINTAINED
+
+This project is not maintained and is not used by creators anymore. If anybody want to maintain the project, fork it or write us.
+
 # botkit-storage-postgres
 
 Postgres storage module for Botkit
