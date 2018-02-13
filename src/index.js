@@ -105,6 +105,9 @@ module.exports = function (config) {
                              VALUES ($1, $2)
                              ON CONFLICT (id) DO UPDATE SET json = EXCLUDED.json;`, [data.id, JSON.stringify(data)]))
       }),
+      delete: wrap(function *(id) {
+        yield dbexec(q => q(`DELETE from ${tableName} where id = $1`, [id]))
+      }),
       all: wrap(function *() {
         const result = yield dbexec(q => q(`SELECT json from ${tableName}`))
         return result.rows.map(x => JSON.parse(x.json));
