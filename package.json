@@ -1,6 +1,6 @@
 {
-  "name": "botkit-storage-postgres",
-  "version": "0.1.0",
+  "name": "@machinshin/botkit-storage-postgres",
+  "version": "0.2.1",
   "description": "Postgres storage driver for botkit",
   "main": "src/index.js",
   "scripts": {
@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lixhq/botkit-storage-postgres.git"
+    "url": "git+https://github.com/machinshin/botkit-storage-postgres.git"
   },
   "keywords": [
     "botkit",
@@ -16,11 +16,11 @@
     "botkit-storage"
   ],
   "author": "Emil Ingerslev <emil@ingerslev.io> (http://ingerslev.io)",
-  "license": "Apache 2.0",
+  "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/lixhq/botkit-storage-postgres/issues"
+    "url": "https://github.com/machinshin/botkit-storage-postgres/issues"
   },
-  "homepage": "https://github.com/lixhq/botkit-storage-postgres#readme",
+  "homepage": "https://github.com/machinshin/botkit-storage-postgres#readme",
   "dependencies": {
     "co": "^4.6.0",
     "pg": "^6.1.0"
